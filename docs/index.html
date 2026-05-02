@@ -53,8 +53,7 @@
   .ac-item:hover, .ac-item.kbsel { background:#1f6feb33; }
   .ac-item .meta { color:#7d8590; font-size:10px; }
 
-  #findBtn { width:100%; margin-top:8px; padding:8px; font-size:12px; }
-  #routeStatus { font-size:11px; color:#7d8590; padding:6px 0; min-height:14px; }
+  #routeStatus { font-size:11px; color:#7d8590; padding:10px 0 6px; min-height:14px; }
 
   #routeResults { flex:1; overflow-y:auto; padding:0 6px 14px; }
   .route-card {
@@ -127,7 +126,7 @@
     </div>
     <div class="tabs">
       <button class="tab active" data-tab="lines">Lines</button>
-      <button class="tab" data-tab="routes">Find route</button>
+      <button class="tab" data-tab="routes">Routes</button>
     </div>
 
     <!-- lines panel -->
@@ -154,8 +153,7 @@
           <button id="to-clear" class="place-clear" title="Clear" style="display:none">×</button>
           <div id="to-ac" class="ac-list"></div>
         </div>
-        <button id="findBtn" disabled>Find routes</button>
-        <div id="routeStatus"></div>
+        <div id="routeStatus">Pick a starting stop and a destination.</div>
       </div>
       <div id="routeResults"></div>
     </div>
@@ -474,11 +472,8 @@
   }
 
   let fromPlace = null, toPlace = null;
-  function updateFindBtn() {
-    document.getElementById("findBtn").disabled = !(fromPlace && toPlace && fromPlace.id !== toPlace.id);
-  }
-  const fromAC = makeAutocomplete("from-input", "from-ac", "from-clear", n => { fromPlace = n; updateFindBtn(); });
-  const toAC   = makeAutocomplete("to-input",   "to-ac",   "to-clear",   n => { toPlace   = n; updateFindBtn(); });
+  const fromAC = makeAutocomplete("from-input", "from-ac", "from-clear", n => { fromPlace = n; maybeSearch(); });
+  const toAC   = makeAutocomplete("to-input",   "to-ac",   "to-clear",   n => { toPlace   = n; maybeSearch(); });
 
   // -- routing graph -------------------------------------------------------
   // State node id encoded as "${pid}|${lid}". Virtual SRC = "@s", DST = "@d".
@@ -658,11 +653,23 @@
     return legs;
   }
 
-  // -- find route action ---------------------------------------------------
-  document.getElementById("findBtn").addEventListener("click", () => {
-    if (!fromPlace || !toPlace) return;
+  // -- auto-search when both endpoints are picked --------------------------
+  function maybeSearch() {
     const status = document.getElementById("routeStatus");
     const results = document.getElementById("routeResults");
+    gRoute.selectAll("*").remove();
+    if (!fromPlace || !toPlace) {
+      results.innerHTML = "";
+      status.textContent = !fromPlace && !toPlace
+        ? "Pick a starting stop and a destination."
+        : !fromPlace ? "Now pick a starting stop." : "Now pick a destination.";
+      return;
+    }
+    if (fromPlace.id === toPlace.id) {
+      results.innerHTML = "";
+      status.textContent = "Origin and destination are the same.";
+      return;
+    }
     status.textContent = "Searching…";
     results.innerHTML = "";
     setTimeout(() => {
@@ -682,7 +689,7 @@
         status.textContent = "Error while searching: " + err.message;
       }
     }, 0);
-  });
+  }
 
   // -- render route cards --------------------------------------------------
   let activeRouteIdx = -1;
