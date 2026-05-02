@@ -7,13 +7,24 @@
   html, body { margin:0; padding:0; height:100%; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#0d1117; color:#e6edf3; }
   #app { display:flex; height:100vh; }
   #sidebar {
-    width:300px; flex-shrink:0; background:#161b22; border-right:1px solid #30363d;
+    width:320px; flex-shrink:0; background:#161b22; border-right:1px solid #30363d;
     display:flex; flex-direction:column; overflow:hidden;
   }
   #sidebar h1 { font-size:14px; margin:14px; font-weight:600; }
   #sidebar h1 small { display:block; font-weight:400; color:#7d8590; font-size:11px; margin-top:3px; }
   #stats { padding:0 14px 10px; font-size:11px; color:#7d8590; line-height:1.5; }
-  #search { margin:0 14px 8px; padding:6px 8px; border:1px solid #30363d; background:#0d1117; color:#e6edf3; border-radius:6px; font-size:12px; }
+  input[type=text], input.txt { padding:6px 8px; border:1px solid #30363d; background:#0d1117; color:#e6edf3; border-radius:6px; font-size:12px; box-sizing:border-box; width:100%; }
+  input[type=text]:focus, input.txt:focus { outline:none; border-color:#1f6feb; }
+  /* tabs */
+  .tabs { display:flex; gap:0; padding:0 14px; border-bottom:1px solid #30363d; margin-bottom:8px; }
+  .tab { flex:1; background:transparent; border:none; color:#7d8590; padding:8px 0; font-size:12px; cursor:pointer; border-bottom:2px solid transparent; }
+  .tab.active { color:#e6edf3; border-bottom-color:#1f6feb; }
+  .tab:hover { color:#e6edf3; }
+  .panel { display:none; flex:1; overflow:hidden; flex-direction:column; }
+  .panel.active { display:flex; }
+
+  /* lines panel */
+  #search { margin:0 14px 8px; }
   #linelist { flex:1; overflow-y:auto; padding:0 6px 14px; }
   .line-item {
     display:flex; align-items:center; padding:4px 8px; cursor:pointer; border-radius:4px;
@@ -24,18 +35,62 @@
   .line-swatch { width:18px; height:18px; border-radius:3px; margin-right:8px; flex-shrink:0;
                  display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:600; }
   .line-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#7d8590; }
+
+  /* routes panel */
+  #routePanel { padding:0 14px 14px; gap:8px; }
+  .place-input-wrap { position:relative; }
+  .place-input-wrap label { display:block; font-size:10px; color:#7d8590; margin:6px 0 3px; }
+  .place-clear { position:absolute; right:6px; top:50%; transform:translateY(-50%); cursor:pointer;
+                 color:#7d8590; font-size:14px; width:18px; height:18px; line-height:16px; text-align:center;
+                 border-radius:50%; background:transparent; border:none; padding:0; }
+  .place-clear:hover { background:#30363d; color:#e6edf3; }
+  .ac-list {
+    position:absolute; left:0; right:0; top:100%; background:#161b22;
+    border:1px solid #30363d; border-radius:6px; margin-top:2px; max-height:200px;
+    overflow-y:auto; z-index:20; box-shadow:0 4px 12px rgba(0,0,0,0.5); display:none;
+  }
+  .ac-item { padding:6px 10px; cursor:pointer; font-size:12px; line-height:1.3; }
+  .ac-item:hover, .ac-item.kbsel { background:#1f6feb33; }
+  .ac-item .meta { color:#7d8590; font-size:10px; }
+
+  #findBtn { width:100%; margin-top:8px; padding:8px; font-size:12px; }
+  #routeStatus { font-size:11px; color:#7d8590; padding:6px 0; min-height:14px; }
+
+  #routeResults { flex:1; overflow-y:auto; padding:0 6px 14px; }
+  .route-card {
+    border:1px solid #30363d; border-radius:8px; padding:10px; margin:0 8px 10px;
+    cursor:pointer; background:#0d1117;
+  }
+  .route-card:hover { border-color:#58a6ff; }
+  .route-card.active { border-color:#1f6feb; background:#1f6feb1a; }
+  .route-card .summary {
+    display:flex; align-items:center; justify-content:space-between; font-size:11px; color:#7d8590; margin-bottom:6px;
+  }
+  .route-card .legs { display:flex; flex-direction:column; gap:6px; }
+  .leg { display:flex; align-items:flex-start; font-size:12px; gap:6px; }
+  .leg .swatch { width:22px; height:22px; border-radius:4px; display:flex; align-items:center; justify-content:center;
+                 font-size:10px; font-weight:600; flex-shrink:0; }
+  .leg-detail { flex:1; min-width:0; line-height:1.35; }
+  .leg-from, .leg-to { color:#e6edf3; }
+  .leg-meta { color:#7d8590; font-size:11px; }
+  .transfer-row { display:flex; align-items:center; gap:6px; color:#7d8590; font-size:11px; padding-left:6px; }
+  .transfer-row::before { content:"⇂"; }
+
   #stage { flex:1; position:relative; overflow:hidden; }
   svg { width:100%; height:100%; display:block; cursor:grab; }
   svg:active { cursor:grabbing; }
   .edge { stroke:#7d8590; stroke-opacity:0.35; fill:none; pointer-events:stroke; }
   .edge.dimmed { stroke-opacity:0.05; }
   .edge.highlight { stroke-opacity:1; }
+  .route-overlay { stroke-linecap:round; fill:none; pointer-events:none; stroke-opacity:0.95; }
+  .route-marker { fill:#fff; stroke:#0d1117; stroke-width:1.5; }
   .node { stroke:#0d1117; stroke-width:1.2; cursor:pointer; }
   .node.minor { stroke-width:0.5; }
   .node.dimmed { opacity:0.15; }
   .node.highlight { stroke:#fff; stroke-width:2; }
   .label { fill:#e6edf3; font-size:10px; pointer-events:none; text-shadow:0 0 3px #0d1117, 0 0 3px #0d1117, 0 0 3px #0d1117; }
   .label.minor { fill:#9da7b3; }
+
   #tooltip {
     position:absolute; background:#161b22; border:1px solid #30363d; border-radius:6px;
     padding:8px 10px; font-size:12px; pointer-events:none; max-width:320px;
@@ -56,6 +111,7 @@
   }
   button:hover { background:#30363d; }
   button.active { background:#1f6feb; border-color:#1f6feb; }
+  button:disabled { opacity:0.5; cursor:not-allowed; }
   .controls { display:flex; gap:6px; padding:0 14px 8px; }
   .controls button { flex:1; }
 </style>
@@ -69,11 +125,40 @@
       <button id="btn-mode">Show all stops</button>
       <button id="btn-reset">Reset view</button>
     </div>
-    <div class="controls">
-      <button id="btn-clear" class="active">All lines</button>
+    <div class="tabs">
+      <button class="tab active" data-tab="lines">Lines</button>
+      <button class="tab" data-tab="routes">Find route</button>
     </div>
-    <input id="search" placeholder="Filter lines (e.g. 1001, Cascais)">
-    <div id="linelist"></div>
+
+    <!-- lines panel -->
+    <div class="panel active" id="panel-lines">
+      <div class="controls">
+        <button id="btn-clear" class="active">All lines</button>
+      </div>
+      <input id="search" class="txt" placeholder="Filter lines (e.g. 1001, Cascais)">
+      <div id="linelist"></div>
+    </div>
+
+    <!-- routes panel -->
+    <div class="panel" id="panel-routes">
+      <div id="routePanel">
+        <div class="place-input-wrap">
+          <label for="from-input">From</label>
+          <input id="from-input" class="txt" placeholder="Type to search a stop…" autocomplete="off">
+          <button id="from-clear" class="place-clear" title="Clear" style="display:none">×</button>
+          <div id="from-ac" class="ac-list"></div>
+        </div>
+        <div class="place-input-wrap">
+          <label for="to-input">To</label>
+          <input id="to-input" class="txt" placeholder="Type to search a stop…" autocomplete="off">
+          <button id="to-clear" class="place-clear" title="Clear" style="display:none">×</button>
+          <div id="to-ac" class="ac-list"></div>
+        </div>
+        <button id="findBtn" disabled>Find routes</button>
+        <div id="routeStatus"></div>
+      </div>
+      <div id="routeResults"></div>
+    </div>
   </div>
   <div id="stage">
     <svg id="map"></svg>
@@ -89,6 +174,7 @@
 (async function() {
   const data = await fetch("graph.json").then(r => r.json());
   const linesById = new Map(data.lines.map(l => [l.id, l]));
+  const nodeById = new Map(data.nodes.map(n => [n.id, n]));
 
   // -- project lat/lon to pixel space --------------------------------------
   const lats = data.nodes.map(n => n.lat), lons = data.nodes.map(n => n.lon);
@@ -96,14 +182,12 @@
   const minLon = Math.min(...lons), maxLon = Math.max(...lons);
   const W = 4000, H = 3000, pad = 60;
   const cosLat = Math.cos((minLat + maxLat) / 2 * Math.PI / 180);
-  const lonSpan = (maxLon - minLon) * cosLat;
-  const latSpan = (maxLat - minLat);
-  const s = Math.min((W - 2*pad) / lonSpan, (H - 2*pad) / latSpan);
+  const s = Math.min((W - 2*pad) / ((maxLon - minLon) * cosLat),
+                     (H - 2*pad) / (maxLat - minLat));
   data.nodes.forEach(n => {
     n.x = pad + (n.lon - minLon) * cosLat * s;
     n.y = pad + (maxLat - n.lat) * s;
   });
-  const nodeById = new Map(data.nodes.map(n => [n.id, n]));
 
   // resolve A/B refs once for both edge sets
   for (const set of [data.edges_hub, data.edges_all]) {
@@ -126,11 +210,14 @@
     `;
   }
 
-  // -- SVG setup -----------------------------------------------------------
+  // ========================================================================
+  // MAP
+  // ========================================================================
   const svg = d3.select("#map");
   const root = svg.append("g");
   const gEdgesAll = root.append("g").attr("class", "edges edges-all");
   const gEdgesHub = root.append("g").attr("class", "edges edges-hub");
+  const gRoute = root.append("g").attr("class", "route-overlay-group");
   const gNodes = root.append("g").attr("class", "nodes");
   const gLabels = root.append("g").attr("class", "labels");
 
@@ -150,7 +237,6 @@
   const edgeHubSel = bindEdges(gEdgesHub, data.edges_hub);
   const edgeAllSel = bindEdges(gEdgesAll, data.edges_all);
 
-  // sort so hubs render on top of minor stops
   const sortedNodes = data.nodes.slice().sort((a, b) => (a.is_hub ? 1 : 0) - (b.is_hub ? 1 : 0));
   const nodeSel = gNodes.selectAll("circle").data(sortedNodes).enter().append("circle")
     .attr("class", d => "node" + (d.is_hub ? "" : " minor"))
@@ -167,8 +253,7 @@
     .style("display", "none");
 
   // -- mode toggle ---------------------------------------------------------
-  let mode = "hubs";  // "hubs" | "all"
-  let zoomK = 1;
+  let mode = "hubs", zoomK = 1;
   function applyMode() {
     const showingAll = mode === "all";
     gEdgesHub.style("display", showingAll ? "none" : null);
@@ -179,7 +264,7 @@
       showingAll ? "Show hubs only" : "Show all stops";
     document.getElementById("btn-mode").classList.toggle("active", showingAll);
     renderStats();
-    applyHighlight();  // re-apply against the now-visible edge set
+    applyHighlight();
   }
   function applyLabelVisibility() {
     const showingAll = mode === "all";
@@ -195,23 +280,30 @@
   });
 
   // -- zoom & pan ----------------------------------------------------------
-  const zoom = d3.zoom()
-    .scaleExtent([0.05, 40])
-    .on("zoom", (ev) => {
-      root.attr("transform", ev.transform);
-      zoomK = ev.transform.k;
-      applyLabelVisibility();
-      gLabels.attr("font-size", Math.max(8, 10 / zoomK) + "px");
-    });
+  const zoom = d3.zoom().scaleExtent([0.05, 40]).on("zoom", (ev) => {
+    root.attr("transform", ev.transform);
+    zoomK = ev.transform.k;
+    applyLabelVisibility();
+    gLabels.attr("font-size", Math.max(8, 10 / zoomK) + "px");
+  });
   svg.call(zoom);
 
   function fitView() {
     const w = svg.node().clientWidth, h = svg.node().clientHeight;
     const k = Math.min(w / W, h / H) * 0.95;
-    svg.transition().duration(400).call(
-      zoom.transform,
-      d3.zoomIdentity.translate((w - W * k) / 2, (h - H * k) / 2).scale(k)
-    );
+    svg.transition().duration(400).call(zoom.transform,
+      d3.zoomIdentity.translate((w - W * k) / 2, (h - H * k) / 2).scale(k));
+  }
+  function focusBounds(xs, ys, paddingPx = 80) {
+    if (!xs.length) return;
+    const w = svg.node().clientWidth, h = svg.node().clientHeight;
+    const x0 = Math.min(...xs), x1 = Math.max(...xs);
+    const y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const dx = Math.max(x1 - x0, 50), dy = Math.max(y1 - y0, 50);
+    const k = Math.min((w - paddingPx*2) / dx, (h - paddingPx*2) / dy, 12);
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    svg.transition().duration(500).call(zoom.transform,
+      d3.zoomIdentity.translate(w/2 - cx*k, h/2 - cy*k).scale(k));
   }
   setTimeout(fitView, 50);
   window.addEventListener("resize", fitView);
@@ -235,16 +327,14 @@
     tooltip.innerHTML = `
       <h3>${n.name}</h3>
       <div class="meta">${n.municipality} · ${n.line_count} line${n.line_count>1?"s":""}${n.is_hub?" · hub":""}</div>
-      <div class="lines">${n.line_ids.map(lineSwatch).join("")}</div>
-    `;
+      <div class="lines">${n.line_ids.map(lineSwatch).join("")}</div>`;
     placeTooltip(ev);
   }
   function showTooltipForEdge(ev, e) {
     tooltip.innerHTML = `
       <h3>${e.A.name} <span style="color:#7d8590">↔</span> ${e.B.name}</h3>
       <div class="meta">${e.lines.length} shared line${e.lines.length>1?"s":""}</div>
-      <div class="lines">${e.lines.map(lineSwatch).join("")}</div>
-    `;
+      <div class="lines">${e.lines.map(lineSwatch).join("")}</div>`;
     placeTooltip(ev);
   }
 
@@ -258,8 +348,7 @@
     .on("click", (ev, d) => selectLine(d.id))
     .html(d => `
       <div class="line-swatch" style="background:${d.color};color:${d.text_color}">${d.short_name}</div>
-      <div class="line-name">${d.long_name}</div>
-    `);
+      <div class="line-name">${d.long_name}</div>`);
 
   let activeLine = null;
   function selectLine(lid) {
@@ -268,9 +357,7 @@
     itemSel.classed("active", d => d.id === activeLine);
     applyHighlight();
   }
-  function activeEdgeSel() {
-    return mode === "hubs" ? edgeHubSel : edgeAllSel;
-  }
+  function activeEdgeSel() { return mode === "hubs" ? edgeHubSel : edgeAllSel; }
   function applyHighlight() {
     const eSel = activeEdgeSel();
     if (!activeLine) {
@@ -293,7 +380,6 @@
     document.getElementById("btn-clear").classList.add("active");
     applyHighlight();
   });
-
   document.getElementById("search").addEventListener("input", (ev) => {
     const q = ev.target.value.trim().toLowerCase();
     itemSel.style("display", d =>
@@ -302,6 +388,376 @@
   });
 
   applyMode();
+
+  // ========================================================================
+  // ROUTE FINDER
+  // ========================================================================
+
+  // -- tab switching ----
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b === btn));
+      const which = btn.dataset.tab;
+      document.querySelectorAll(".panel").forEach(p =>
+        p.classList.toggle("active", p.id === "panel-" + which));
+    });
+  });
+
+  // -- precompute place index for autocomplete + adjacency for routing -----
+  // index: array of {n: nodeRef, lname: lowercased name, lmun: lowercased municipality}
+  const placeIndex = data.nodes.map(n => ({
+    n, lname: n.name.toLowerCase(), lmun: (n.municipality || "").toLowerCase()
+  }));
+
+  function searchPlaces(q, limit = 10) {
+    q = q.trim().toLowerCase();
+    if (!q) return [];
+    const starts = [], includes = [];
+    for (const p of placeIndex) {
+      if (p.lname.startsWith(q)) starts.push(p);
+      else if (p.lname.includes(q) || p.lmun.includes(q)) includes.push(p);
+      if (starts.length >= limit) break;
+    }
+    return [...starts, ...includes].slice(0, limit);
+  }
+
+  // -- autocomplete component ---------------------------------------------
+  function makeAutocomplete(inputId, listId, clearId, onSelect) {
+    const input = document.getElementById(inputId);
+    const list = document.getElementById(listId);
+    const clearBtn = document.getElementById(clearId);
+    let selected = null, kbsel = -1, currentItems = [];
+
+    function render(items) {
+      currentItems = items; kbsel = -1;
+      if (!items.length) { list.style.display = "none"; return; }
+      list.innerHTML = items.map((p, i) => `
+        <div class="ac-item" data-i="${i}">
+          <div>${p.n.name}</div>
+          <div class="meta">${p.n.municipality} · ${p.n.line_count} line${p.n.line_count>1?"s":""}</div>
+        </div>`).join("");
+      list.style.display = "block";
+      list.querySelectorAll(".ac-item").forEach((el, i) => {
+        el.addEventListener("mousedown", (ev) => { ev.preventDefault(); pick(items[i]); });
+      });
+    }
+    function pick(p) {
+      selected = p.n;
+      input.value = p.n.name;
+      list.style.display = "none";
+      clearBtn.style.display = "";
+      onSelect(p.n);
+    }
+    function clear() {
+      selected = null; input.value = ""; clearBtn.style.display = "none";
+      list.style.display = "none"; onSelect(null);
+    }
+    input.addEventListener("input", () => {
+      selected = null; clearBtn.style.display = input.value ? "" : "none";
+      onSelect(null); render(searchPlaces(input.value));
+    });
+    input.addEventListener("focus", () => {
+      if (input.value) render(searchPlaces(input.value));
+    });
+    input.addEventListener("blur", () => setTimeout(() => list.style.display = "none", 150));
+    input.addEventListener("keydown", (ev) => {
+      if (list.style.display === "none") return;
+      if (ev.key === "ArrowDown") { ev.preventDefault(); kbsel = Math.min(kbsel + 1, currentItems.length - 1); }
+      else if (ev.key === "ArrowUp") { ev.preventDefault(); kbsel = Math.max(kbsel - 1, 0); }
+      else if (ev.key === "Enter" && kbsel >= 0) { ev.preventDefault(); pick(currentItems[kbsel]); return; }
+      else if (ev.key === "Escape") { list.style.display = "none"; return; }
+      else return;
+      list.querySelectorAll(".ac-item").forEach((el, i) => el.classList.toggle("kbsel", i === kbsel));
+    });
+    clearBtn.addEventListener("click", clear);
+    return { get value() { return selected; }, clear };
+  }
+
+  let fromPlace = null, toPlace = null;
+  function updateFindBtn() {
+    document.getElementById("findBtn").disabled = !(fromPlace && toPlace && fromPlace.id !== toPlace.id);
+  }
+  const fromAC = makeAutocomplete("from-input", "from-ac", "from-clear", n => { fromPlace = n; updateFindBtn(); });
+  const toAC   = makeAutocomplete("to-input",   "to-ac",   "to-clear",   n => { toPlace   = n; updateFindBtn(); });
+
+  // -- routing graph -------------------------------------------------------
+  // State node id encoded as "${pid}|${lid}". Virtual SRC = "@s", DST = "@d".
+  // adj: Map<string, Array<{to, t, h}>>   (transfers, hops)
+  const adj = new Map();
+  function pushEdge(u, v, t, h) {
+    let arr = adj.get(u); if (!arr) { arr = []; adj.set(u, arr); }
+    arr.push({ to: v, t, h });
+  }
+  // ride edges (undirected) per line
+  for (const [lid, seq] of Object.entries(data.line_paths)) {
+    for (let i = 0; i < seq.length - 1; i++) {
+      const a = seq[i] + "|" + lid, b = seq[i+1] + "|" + lid;
+      pushEdge(a, b, 0, 1); pushEdge(b, a, 0, 1);
+    }
+  }
+  // transfer edges at each place
+  for (const n of data.nodes) {
+    const ids = n.line_ids;
+    if (ids.length < 2) continue;
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = 0; j < ids.length; j++) {
+        if (i === j) continue;
+        pushEdge(n.id + "|" + ids[i], n.id + "|" + ids[j], 1, 0);
+      }
+    }
+  }
+  console.log("route graph: nodes=" + adj.size);
+
+  // Cost lex: we encode as a single number: t * 1e6 + h. Hops won't exceed 1e6.
+  function costNum(t, h) { return t * 1e6 + h; }
+
+  class MinHeap {
+    constructor() { this.a = []; }
+    get size() { return this.a.length; }
+    push(x) { this.a.push(x); this._up(this.a.length - 1); }
+    pop() {
+      if (!this.a.length) return null;
+      const top = this.a[0], last = this.a.pop();
+      if (this.a.length) { this.a[0] = last; this._down(0); }
+      return top;
+    }
+    _up(i) { const a = this.a;
+      while (i > 0) { const p = (i - 1) >> 1;
+        if (a[p].c <= a[i].c) break;
+        [a[p], a[i]] = [a[i], a[p]]; i = p; } }
+    _down(i) { const a = this.a, n = a.length;
+      while (true) { const l = 2*i+1, r = 2*i+2; let b = i;
+        if (l < n && a[l].c < a[b].c) b = l;
+        if (r < n && a[r].c < a[b].c) b = r;
+        if (b === i) break; [a[b], a[i]] = [a[i], a[b]]; i = b; } }
+  }
+
+  // Dijkstra: returns {path: [stateId,...], cost: {t, h}} or null.
+  function dijkstra(srcEdges, dstSet, blockedEdges, blockedNodes) {
+    const dist = new Map();
+    const prev = new Map();
+    const pq = new MinHeap();
+    for (const e of srcEdges) {
+      if (blockedNodes && blockedNodes.has(e.to)) continue;
+      const c = costNum(e.t, e.h);
+      if (!dist.has(e.to) || c < dist.get(e.to)) {
+        dist.set(e.to, c);
+        prev.set(e.to, { from: "@s", t: e.t, h: e.h });
+        pq.push({ id: e.to, c });
+      }
+    }
+    while (pq.size) {
+      const cur = pq.pop();
+      if (cur.c > dist.get(cur.id)) continue;
+      if (dstSet.has(cur.id)) {
+        // reconstruct
+        const path = [];
+        let n = cur.id;
+        while (n && n !== "@s") { path.push(n); n = prev.get(n)?.from; }
+        path.reverse();
+        const t = Math.floor(cur.c / 1e6), h = cur.c - t * 1e6;
+        return { path, cost: { t, h, num: cur.c } };
+      }
+      const out = adj.get(cur.id) || [];
+      for (const e of out) {
+        if (blockedNodes && blockedNodes.has(e.to)) continue;
+        if (blockedEdges && blockedEdges.has(cur.id + "||" + e.to)) continue;
+        const nc = cur.c + costNum(e.t, e.h);
+        if (!dist.has(e.to) || nc < dist.get(e.to)) {
+          dist.set(e.to, nc);
+          prev.set(e.to, { from: cur.id, t: e.t, h: e.h });
+          pq.push({ id: e.to, c: nc });
+        }
+      }
+    }
+    return null;
+  }
+
+  function pathCostNum(path, srcEdges) {
+    // edges between consecutive states. First edge from @s based on srcEdges.
+    if (!path.length) return 0;
+    let c = 0;
+    const first = srcEdges.find(e => e.to === path[0]);
+    if (!first) return Infinity;
+    c += costNum(first.t, first.h);
+    for (let i = 0; i < path.length - 1; i++) {
+      const u = path[i], v = path[i+1];
+      const e = (adj.get(u) || []).find(x => x.to === v);
+      if (!e) return Infinity;
+      c += costNum(e.t, e.h);
+    }
+    return c;
+  }
+
+  // Yen's k-shortest paths
+  function yen(srcEdges, dstSet, K) {
+    const A = [];
+    const first = dijkstra(srcEdges, dstSet, null, null);
+    if (!first) return [];
+    A.push(first);
+    const B = [];
+    for (let k = 1; k < K; k++) {
+      const prevPath = A[k-1].path;
+      for (let i = 0; i < prevPath.length - 1; i++) {
+        const spurNode = prevPath[i];
+        const rootPath = prevPath.slice(0, i + 1);
+        const blockedEdges = new Set();
+        for (const p of A) {
+          if (p.path.length > i + 1 &&
+              rootPath.every((x, idx) => x === p.path[idx])) {
+            blockedEdges.add(p.path[i] + "||" + p.path[i+1]);
+          }
+        }
+        const blockedNodes = new Set(rootPath.slice(0, -1));  // keep spur reachable
+        // For spur search, source is just the spurNode; we synthesise a
+        // single-element srcEdges with cost 0 from @s to spurNode.
+        const spurSrc = [{ to: spurNode, t: 0, h: 0 }];
+        const spur = dijkstra(spurSrc, dstSet, blockedEdges, blockedNodes);
+        if (!spur) continue;
+        // Stitch: rootPath (without last, since spur path starts with spurNode) + spur.path
+        const candidate = rootPath.slice(0, -1).concat(spur.path);
+        // Deduplicate against existing A and B
+        const sig = candidate.join(">");
+        if (A.some(p => p.path.join(">") === sig)) continue;
+        if (B.some(p => p.path.join(">") === sig)) continue;
+        // Recompute total cost using real srcEdges (not the synthetic spur ones)
+        const totalCost = pathCostNum(candidate, srcEdges);
+        if (!isFinite(totalCost)) continue;
+        const t = Math.floor(totalCost / 1e6), h = totalCost - t * 1e6;
+        B.push({ path: candidate, cost: { t, h, num: totalCost } });
+      }
+      if (!B.length) break;
+      // pick min and remove from B
+      let bestIdx = 0;
+      for (let i = 1; i < B.length; i++) if (B[i].cost.num < B[bestIdx].cost.num) bestIdx = i;
+      A.push(B[bestIdx]);
+      B.splice(bestIdx, 1);
+    }
+    return A;
+  }
+
+  // Convert state-graph path into legs
+  function pathToLegs(path) {
+    const legs = [];
+    let cur = null;
+    for (const state of path) {
+      const sep = state.lastIndexOf("|");
+      const pid = state.slice(0, sep), lid = state.slice(sep + 1);
+      if (!cur || cur.line !== lid) {
+        if (cur) legs.push(cur);
+        cur = { line: lid, stops: [pid] };
+      } else {
+        cur.stops.push(pid);
+      }
+    }
+    if (cur) legs.push(cur);
+    // collapse zero-hop legs (transfer-only at a place): a leg with 1 stop is a
+    // pass-through that shouldn't appear by itself, but we keep it because it
+    // marks the transfer boundary; pathToLegs is only called on valid paths
+    // that always have ride edges between transfers.
+    return legs;
+  }
+
+  // -- find route action ---------------------------------------------------
+  document.getElementById("findBtn").addEventListener("click", () => {
+    if (!fromPlace || !toPlace) return;
+    const status = document.getElementById("routeStatus");
+    const results = document.getElementById("routeResults");
+    status.textContent = "Searching…";
+    results.innerHTML = "";
+    setTimeout(() => {
+      try {
+        const srcEdges = fromPlace.line_ids.map(lid => ({ to: fromPlace.id + "|" + lid, t: 0, h: 0 }));
+        const dstSet = new Set(toPlace.line_ids.map(lid => toPlace.id + "|" + lid));
+        if (!srcEdges.length) { status.textContent = "No bus lines serve the origin."; return; }
+        if (!dstSet.size) { status.textContent = "No bus lines serve the destination."; return; }
+        const t0 = performance.now();
+        const paths = yen(srcEdges, dstSet, 3);
+        const elapsed = (performance.now() - t0).toFixed(0);
+        if (!paths.length) { status.textContent = "No route found between these places."; return; }
+        status.textContent = `Found ${paths.length} route${paths.length>1?"s":""} in ${elapsed} ms`;
+        renderRouteCards(paths);
+      } catch (err) {
+        console.error(err);
+        status.textContent = "Error while searching: " + err.message;
+      }
+    }, 0);
+  });
+
+  // -- render route cards --------------------------------------------------
+  let activeRouteIdx = -1;
+  let cachedRoutes = [];
+  function renderRouteCards(paths) {
+    cachedRoutes = paths;
+    const container = document.getElementById("routeResults");
+    container.innerHTML = paths.map((p, i) => {
+      const legs = pathToLegs(p.path);
+      const summary = `<b>${p.cost.t}</b> transfer${p.cost.t!==1?"s":""} · <b>${p.cost.h}</b> stops`;
+      const legsHtml = legs.map((leg, idx) => {
+        const ln = linesById.get(leg.line);
+        const fromN = nodeById.get(leg.stops[0]);
+        const toN = nodeById.get(leg.stops[leg.stops.length-1]);
+        const hops = leg.stops.length - 1;
+        const tail = idx < legs.length - 1
+          ? `<div class="transfer-row">transfer at ${nodeById.get(legs[idx+1].stops[0]).name}</div>`
+          : "";
+        return `
+          <div class="leg">
+            <div class="swatch" style="background:${ln.color};color:${ln.text_color}">${ln.short_name}</div>
+            <div class="leg-detail">
+              <div class="leg-from">${fromN.name}</div>
+              <div class="leg-meta">↓ ${hops} stop${hops!==1?"s":""}</div>
+              <div class="leg-to">${toN.name}</div>
+            </div>
+          </div>${tail}`;
+      }).join("");
+      return `
+        <div class="route-card" data-i="${i}">
+          <div class="summary"><span>Option ${i+1}</span><span>${summary}</span></div>
+          <div class="legs">${legsHtml}</div>
+        </div>`;
+    }).join("");
+    container.querySelectorAll(".route-card").forEach((el, i) => {
+      el.addEventListener("click", () => selectRoute(i));
+    });
+    selectRoute(0);
+  }
+
+  function selectRoute(i) {
+    activeRouteIdx = i;
+    document.querySelectorAll(".route-card").forEach((el, idx) =>
+      el.classList.toggle("active", idx === i));
+    drawRouteOverlay(cachedRoutes[i]);
+  }
+
+  function drawRouteOverlay(route) {
+    gRoute.selectAll("*").remove();
+    if (!route) return;
+    const legs = pathToLegs(route.path);
+    const xs = [], ys = [];
+    legs.forEach(leg => {
+      const ln = linesById.get(leg.line);
+      const points = leg.stops.map(pid => nodeById.get(pid)).filter(Boolean);
+      points.forEach(p => { xs.push(p.x); ys.push(p.y); });
+      const lineGen = d3.line().x(p => p.x).y(p => p.y);
+      gRoute.append("path")
+        .attr("class", "route-overlay")
+        .attr("d", lineGen(points))
+        .attr("stroke", ln.color)
+        .attr("stroke-width", 5);
+    });
+    // start + end markers
+    const all = legs.flatMap(l => l.stops);
+    const start = nodeById.get(all[0]), end = nodeById.get(all[all.length-1]);
+    [start, end].forEach((p, idx) => {
+      if (!p) return;
+      gRoute.append("circle").attr("class", "route-marker")
+        .attr("cx", p.x).attr("cy", p.y).attr("r", 6)
+        .attr("fill", idx === 0 ? "#3fb950" : "#f85149");
+    });
+    focusBounds(xs, ys);
+  }
+
 })();
 </script>
 </body>

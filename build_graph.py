@@ -194,11 +194,15 @@ edges_hub_list = [{"a": a, "b": b, "lines": sorted(e["lines"])}
 edges_all_list = [{"a": a, "b": b, "lines": sorted(e["lines"])}
                   for (a, b), e in edges_all.items()]
 
+# per-line ordered place sequence (for client-side route-finding)
+line_paths = {lid: seq for lid, seq in line_place_seq.items() if seq}
+
 out = {
     "lines": list(lines.values()),
     "nodes": nodes,
     "edges_hub": edges_hub_list,
     "edges_all": edges_all_list,
+    "line_paths": line_paths,
     "meta": {
         "hub_threshold": HUB_THRESHOLD,
         "grid_deg": GRID_DEG,
