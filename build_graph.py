@@ -149,34 +149,37 @@ for lid, pids in line_patterns.items():
         final_places[plid]["line_ids"].add(lid)
     line_place_seq[lid] = seq
 
-# 7. Hubs = places with >= HUB_THRESHOLD lines --------------------------------
-hubs = {pid: p for pid, p in final_places.items() if len(p["line_ids"]) >= HUB_THRESHOLD}
-print(f"hubs (>= {HUB_THRESHOLD} lines): {len(hubs)}", file=sys.stderr)
+# 7. Two edge sets: hub-collapsed and granular (consecutive places) -----------
+edges_hub = defaultdict(lambda: {"lines": set()})   # between hubs only
+edges_all = defaultdict(lambda: {"lines": set()})   # between consecutive places
+hub_ids = {pid for pid, p in final_places.items() if len(p["line_ids"]) >= HUB_THRESHOLD}
+print(f"hubs (>= {HUB_THRESHOLD} lines): {len(hub_ids)}", file=sys.stderr)
 
-# 8. For each line, emit edges between consecutive hubs in its sequence -------
-edges = defaultdict(lambda: {"lines": set()})  # (a,b) -> {lines: {...}}  a<b for undirected
 for lid, seq in line_place_seq.items():
-    hub_seq = [pid for pid in seq if pid in hubs]
+    # granular edges: consecutive places along the line
+    for a, b in zip(seq, seq[1:]):
+        if a == b: continue
+        edges_all[tuple(sorted((a, b)))]["lines"].add(lid)
+    # hub-collapsed edges: only hops between consecutive hubs
+    hub_seq = [pid for pid in seq if pid in hub_ids]
     for a, b in zip(hub_seq, hub_seq[1:]):
-        if a == b:
-            continue
-        key = tuple(sorted((a, b)))
-        edges[key]["lines"].add(lid)
+        if a == b: continue
+        edges_hub[tuple(sorted((a, b)))]["lines"].add(lid)
 
-print(f"edges: {len(edges)}", file=sys.stderr)
+print(f"edges hub: {len(edges_hub)}, edges all: {len(edges_all)}", file=sys.stderr)
 
-# 9. Trim places: only keep hubs that have at least one edge -----------------
+# 8. Keep only places that are part of at least one line's path ---------------
 used = set()
-for (a, b) in edges:
+for (a, b) in edges_all:
     used.add(a); used.add(b)
-hubs = {pid: hubs[pid] for pid in used}
-print(f"hubs with edges: {len(hubs)}", file=sys.stderr)
+kept_places = {pid: final_places[pid] for pid in used}
+print(f"places kept (on at least one line): {len(kept_places)}", file=sys.stderr)
 
-# 10. Emit JSON ---------------------------------------------------------------
+# 9. Emit JSON ---------------------------------------------------------------
 import os
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 nodes = []
-for pid, p in hubs.items():
+for pid, p in kept_places.items():
     nodes.append({
         "id": pid,
         "name": p["name"],
@@ -184,15 +187,18 @@ for pid, p in hubs.items():
         "municipality": p["municipality"],
         "line_count": len(p["line_ids"]),
         "line_ids": sorted(p["line_ids"]),
+        "is_hub": pid in hub_ids,
     })
-edge_list = []
-for (a, b), e in edges.items():
-    edge_list.append({"a": a, "b": b, "lines": sorted(e["lines"])})
+edges_hub_list = [{"a": a, "b": b, "lines": sorted(e["lines"])}
+                  for (a, b), e in edges_hub.items()]
+edges_all_list = [{"a": a, "b": b, "lines": sorted(e["lines"])}
+                  for (a, b), e in edges_all.items()]
 
 out = {
     "lines": list(lines.values()),
     "nodes": nodes,
-    "edges": edge_list,
+    "edges_hub": edges_hub_list,
+    "edges_all": edges_all_list,
     "meta": {
         "hub_threshold": HUB_THRESHOLD,
         "grid_deg": GRID_DEG,

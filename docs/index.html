@@ -31,9 +31,11 @@
   .edge.dimmed { stroke-opacity:0.05; }
   .edge.highlight { stroke-opacity:1; }
   .node { stroke:#0d1117; stroke-width:1.2; cursor:pointer; }
+  .node.minor { stroke-width:0.5; }
   .node.dimmed { opacity:0.15; }
   .node.highlight { stroke:#fff; stroke-width:2; }
   .label { fill:#e6edf3; font-size:10px; pointer-events:none; text-shadow:0 0 3px #0d1117, 0 0 3px #0d1117, 0 0 3px #0d1117; }
+  .label.minor { fill:#9da7b3; }
   #tooltip {
     position:absolute; background:#161b22; border:1px solid #30363d; border-radius:6px;
     padding:8px 10px; font-size:12px; pointer-events:none; max-width:320px;
@@ -50,12 +52,12 @@
   }
   button {
     background:#21262d; color:#e6edf3; border:1px solid #30363d; border-radius:6px;
-    padding:4px 10px; font-size:11px; cursor:pointer; margin:0 14px 8px;
+    padding:4px 10px; font-size:11px; cursor:pointer;
   }
   button:hover { background:#30363d; }
   button.active { background:#1f6feb; border-color:#1f6feb; }
-  .controls { display:flex; gap:6px; padding:0 8px; }
-  .controls button { margin:0; flex:1; }
+  .controls { display:flex; gap:6px; padding:0 14px 8px; }
+  .controls button { flex:1; }
 </style>
 </head>
 <body>
@@ -64,8 +66,11 @@
     <h1>Carris Metropolitana<small>Bus-line transfer graph</small></h1>
     <div id="stats"></div>
     <div class="controls">
-      <button id="btn-clear" class="active">All lines</button>
+      <button id="btn-mode">Show all stops</button>
       <button id="btn-reset">Reset view</button>
+    </div>
+    <div class="controls">
+      <button id="btn-clear" class="active">All lines</button>
     </div>
     <input id="search" placeholder="Filter lines (e.g. 1001, Cascais)">
     <div id="linelist"></div>
@@ -74,8 +79,7 @@
     <svg id="map"></svg>
     <div id="tooltip"></div>
     <div id="legend">
-      <div><b>Node</b> = transfer hub (≥5 lines)</div>
-      <div><b>Edge</b> = direct hop on shared lines</div>
+      <div><b>Hubs</b> = places served by ≥5 lines</div>
       <div>scroll to zoom · drag to pan</div>
     </div>
   </div>
@@ -87,7 +91,6 @@
   const linesById = new Map(data.lines.map(l => [l.id, l]));
 
   // -- project lat/lon to pixel space --------------------------------------
-  // Equirectangular at Lisbon's latitude. We just want a flat 2D layout.
   const lats = data.nodes.map(n => n.lat), lons = data.nodes.map(n => n.lon);
   const minLat = Math.min(...lats), maxLat = Math.max(...lats);
   const minLon = Math.min(...lons), maxLon = Math.max(...lons);
@@ -95,87 +98,121 @@
   const cosLat = Math.cos((minLat + maxLat) / 2 * Math.PI / 180);
   const lonSpan = (maxLon - minLon) * cosLat;
   const latSpan = (maxLat - minLat);
-  const sx = (W - 2*pad) / lonSpan;
-  const sy = (H - 2*pad) / latSpan;
-  const s = Math.min(sx, sy);
-  function project(lat, lon) {
-    return {
-      x: pad + (lon - minLon) * cosLat * s,
-      y: pad + (maxLat - lat) * s,
-    };
-  }
-  data.nodes.forEach(n => Object.assign(n, project(n.lat, n.lon)));
+  const s = Math.min((W - 2*pad) / lonSpan, (H - 2*pad) / latSpan);
+  data.nodes.forEach(n => {
+    n.x = pad + (n.lon - minLon) * cosLat * s;
+    n.y = pad + (maxLat - n.lat) * s;
+  });
   const nodeById = new Map(data.nodes.map(n => [n.id, n]));
 
-  // -- prepare edges -------------------------------------------------------
-  data.edges.forEach(e => {
-    e.A = nodeById.get(e.a);
-    e.B = nodeById.get(e.b);
-  });
-  // sort thin edges first so heavy edges paint on top
-  data.edges.sort((p, q) => p.lines.length - q.lines.length);
+  // resolve A/B refs once for both edge sets
+  for (const set of [data.edges_hub, data.edges_all]) {
+    for (const e of set) { e.A = nodeById.get(e.a); e.B = nodeById.get(e.b); }
+    set.sort((p, q) => p.lines.length - q.lines.length);
+  }
 
   // -- stats ---------------------------------------------------------------
-  document.getElementById("stats").innerHTML = `
-    <b>${data.lines.length}</b> bus lines · <b>${data.nodes.length}</b> hubs · <b>${data.edges.length}</b> connections<br>
-    From ${data.meta.total_stops.toLocaleString()} stops · ${data.meta.total_places.toLocaleString()} places · threshold ≥${data.meta.hub_threshold} lines
-  `;
+  const hubCount = data.nodes.filter(n => n.is_hub).length;
+  function renderStats() {
+    const showingAll = mode === "all";
+    const visibleNodes = showingAll ? data.nodes.length : hubCount;
+    const visibleEdges = showingAll ? data.edges_all.length : data.edges_hub.length;
+    document.getElementById("stats").innerHTML = `
+      <b>${data.lines.length}</b> bus lines · <b>${visibleNodes.toLocaleString()}</b>
+      ${showingAll ? "stops" : "hubs"} · <b>${visibleEdges.toLocaleString()}</b> connections<br>
+      ${showingAll
+        ? `${hubCount.toLocaleString()} of these are hubs (≥${data.meta.hub_threshold} lines)`
+        : `From ${data.meta.total_stops.toLocaleString()} stops · ${data.meta.total_places.toLocaleString()} places`}
+    `;
+  }
 
   // -- SVG setup -----------------------------------------------------------
   const svg = d3.select("#map");
   const root = svg.append("g");
-  const gEdges = root.append("g").attr("class", "edges");
+  const gEdgesAll = root.append("g").attr("class", "edges edges-all");
+  const gEdgesHub = root.append("g").attr("class", "edges edges-hub");
   const gNodes = root.append("g").attr("class", "nodes");
   const gLabels = root.append("g").attr("class", "labels");
 
   const edgeWidth = d3.scaleSqrt().domain([1, 25]).range([0.6, 4]);
-  const nodeRadius = d3.scaleSqrt().domain([5, 25]).range([2, 8]);
-  const nodeColor = d3.scaleSequential(d3.interpolateYlOrRd).domain([5, 25]);
+  const nodeRadius = d3.scaleSqrt().domain([1, 25]).range([1.2, 8]);
+  const hubColor = d3.scaleSequential(d3.interpolateYlOrRd).domain([5, 25]);
 
-  const edgeSel = gEdges.selectAll("line").data(data.edges).enter().append("line")
-    .attr("class", "edge")
-    .attr("x1", d => d.A.x).attr("y1", d => d.A.y)
-    .attr("x2", d => d.B.x).attr("y2", d => d.B.y)
-    .attr("stroke-width", d => edgeWidth(d.lines.length))
-    .on("mouseenter", (ev, d) => showTooltipForEdge(ev, d))
-    .on("mouseleave", hideTooltip);
+  function bindEdges(g, edges) {
+    return g.selectAll("line").data(edges).enter().append("line")
+      .attr("class", "edge")
+      .attr("x1", d => d.A.x).attr("y1", d => d.A.y)
+      .attr("x2", d => d.B.x).attr("y2", d => d.B.y)
+      .attr("stroke-width", d => edgeWidth(d.lines.length))
+      .on("mouseenter", (ev, d) => showTooltipForEdge(ev, d))
+      .on("mouseleave", hideTooltip);
+  }
+  const edgeHubSel = bindEdges(gEdgesHub, data.edges_hub);
+  const edgeAllSel = bindEdges(gEdgesAll, data.edges_all);
 
-  const nodeSel = gNodes.selectAll("circle").data(data.nodes).enter().append("circle")
-    .attr("class", "node")
+  // sort so hubs render on top of minor stops
+  const sortedNodes = data.nodes.slice().sort((a, b) => (a.is_hub ? 1 : 0) - (b.is_hub ? 1 : 0));
+  const nodeSel = gNodes.selectAll("circle").data(sortedNodes).enter().append("circle")
+    .attr("class", d => "node" + (d.is_hub ? "" : " minor"))
     .attr("cx", d => d.x).attr("cy", d => d.y)
     .attr("r", d => nodeRadius(Math.min(d.line_count, 25)))
-    .attr("fill", d => nodeColor(Math.min(d.line_count, 25)))
+    .attr("fill", d => d.is_hub ? hubColor(Math.min(d.line_count, 25)) : "#6e7681")
     .on("mouseenter", (ev, d) => showTooltipForNode(ev, d))
     .on("mouseleave", hideTooltip);
 
-  // labels appear when zoomed in enough
-  const labelSel = gLabels.selectAll("text").data(data.nodes).enter().append("text")
-    .attr("class", "label")
+  const labelSel = gLabels.selectAll("text").data(sortedNodes).enter().append("text")
+    .attr("class", d => "label" + (d.is_hub ? "" : " minor"))
     .attr("x", d => d.x + 6).attr("y", d => d.y + 3)
     .text(d => d.name)
     .style("display", "none");
+
+  // -- mode toggle ---------------------------------------------------------
+  let mode = "hubs";  // "hubs" | "all"
+  let zoomK = 1;
+  function applyMode() {
+    const showingAll = mode === "all";
+    gEdgesHub.style("display", showingAll ? "none" : null);
+    gEdgesAll.style("display", showingAll ? null : "none");
+    nodeSel.style("display", d => (showingAll || d.is_hub) ? null : "none");
+    applyLabelVisibility();
+    document.getElementById("btn-mode").textContent =
+      showingAll ? "Show hubs only" : "Show all stops";
+    document.getElementById("btn-mode").classList.toggle("active", showingAll);
+    renderStats();
+    applyHighlight();  // re-apply against the now-visible edge set
+  }
+  function applyLabelVisibility() {
+    const showingAll = mode === "all";
+    labelSel.style("display", d => {
+      if (!showingAll && !d.is_hub) return "none";
+      const threshold = d.is_hub ? 4 : 9;
+      return zoomK > threshold ? null : "none";
+    });
+  }
+  document.getElementById("btn-mode").addEventListener("click", () => {
+    mode = (mode === "hubs") ? "all" : "hubs";
+    applyMode();
+  });
 
   // -- zoom & pan ----------------------------------------------------------
   const zoom = d3.zoom()
     .scaleExtent([0.05, 40])
     .on("zoom", (ev) => {
       root.attr("transform", ev.transform);
-      // show labels only above a certain zoom level
-      labelSel.style("display", ev.transform.k > 4 ? null : "none");
-      // counter-scale labels and node strokes lightly
-      const k = ev.transform.k;
-      gLabels.attr("font-size", Math.max(8, 10 / k) + "px");
+      zoomK = ev.transform.k;
+      applyLabelVisibility();
+      gLabels.attr("font-size", Math.max(8, 10 / zoomK) + "px");
     });
   svg.call(zoom);
 
   function fitView() {
     const w = svg.node().clientWidth, h = svg.node().clientHeight;
     const k = Math.min(w / W, h / H) * 0.95;
-    const tx = (w - W * k) / 2;
-    const ty = (h - H * k) / 2;
-    svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(k));
+    svg.transition().duration(400).call(
+      zoom.transform,
+      d3.zoomIdentity.translate((w - W * k) / 2, (h - H * k) / 2).scale(k)
+    );
   }
-  // initial fit (defer to after layout)
   setTimeout(fitView, 50);
   window.addEventListener("resize", fitView);
   document.getElementById("btn-reset").addEventListener("click", fitView);
@@ -184,9 +221,8 @@
   const tooltip = document.getElementById("tooltip");
   function placeTooltip(ev) {
     const r = document.getElementById("stage").getBoundingClientRect();
-    let x = ev.clientX - r.left + 12;
-    let y = ev.clientY - r.top + 12;
-    tooltip.style.left = x + "px"; tooltip.style.top = y + "px";
+    tooltip.style.left = (ev.clientX - r.left + 12) + "px";
+    tooltip.style.top = (ev.clientY - r.top + 12) + "px";
     tooltip.style.display = "block";
   }
   function hideTooltip() { tooltip.style.display = "none"; }
@@ -198,7 +234,7 @@
   function showTooltipForNode(ev, n) {
     tooltip.innerHTML = `
       <h3>${n.name}</h3>
-      <div class="meta">${n.municipality} · ${n.line_count} lines</div>
+      <div class="meta">${n.municipality} · ${n.line_count} line${n.line_count>1?"s":""}${n.is_hub?" · hub":""}</div>
       <div class="lines">${n.line_ids.map(lineSwatch).join("")}</div>
     `;
     placeTooltip(ev);
@@ -232,17 +268,19 @@
     itemSel.classed("active", d => d.id === activeLine);
     applyHighlight();
   }
+  function activeEdgeSel() {
+    return mode === "hubs" ? edgeHubSel : edgeAllSel;
+  }
   function applyHighlight() {
+    const eSel = activeEdgeSel();
     if (!activeLine) {
-      edgeSel.classed("dimmed", false).classed("highlight", false)
-        .attr("stroke", "#7d8590");
+      eSel.classed("dimmed", false).classed("highlight", false).attr("stroke", "#7d8590");
       nodeSel.classed("dimmed", false).classed("highlight", false);
       return;
     }
-    const line = linesById.get(activeLine);
-    const color = line.color;
+    const color = linesById.get(activeLine).color;
     const onLine = new Set();
-    edgeSel.classed("dimmed", e => !e.lines.includes(activeLine))
+    eSel.classed("dimmed", e => !e.lines.includes(activeLine))
       .classed("highlight", e => e.lines.includes(activeLine))
       .attr("stroke", e => e.lines.includes(activeLine) ? color : "#7d8590")
       .each(e => { if (e.lines.includes(activeLine)) { onLine.add(e.a); onLine.add(e.b); }});
@@ -256,13 +294,14 @@
     applyHighlight();
   });
 
-  // search
   document.getElementById("search").addEventListener("input", (ev) => {
     const q = ev.target.value.trim().toLowerCase();
     itemSel.style("display", d =>
       !q || d.short_name.toLowerCase().includes(q) || d.long_name.toLowerCase().includes(q)
         ? null : "none");
   });
+
+  applyMode();
 })();
 </script>
 </body>
